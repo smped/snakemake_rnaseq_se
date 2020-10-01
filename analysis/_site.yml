@@ -1,0 +1,15 @@
+name: "snakemake_rnaseq"
+output_dir: ../docs
+navbar:
+  title: "snakemake_rnaseq"
+  left:
+  - text: Home
+    href: index.html
+  - text: About
+    href: about.html
+output:
+  workflowr::wflow_html:
+    toc: yes
+    toc_float: yes
+    theme: cosmo
+    highlight: textmate

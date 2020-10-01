@@ -1,0 +1,36 @@
+samples: config/samples.tsv
+
+# The file extension. Usually one of fq.gz/fastq.gz/fq/fastq
+# Can also be _R1_001.fastq.gz or any other constant suffix which trails
+# the values provided in the samples file
+ext: .fastq.gz
+
+# The root argument tells you where the genome will be located
+# on the local system. All other arguments are required for
+# downloading
+ref:
+  build: GRCh38
+  release: 101
+  root: /hpcfs/users/a1018048/refs
+  seqtype: primary_assembly
+  species: homo_sapiens
+
+# Given we only have 75nt reads, don't group during fastqc
+fastqc:
+  params: "--nogroup --noextract"
+
+# Settings for Adapter Removal
+trimming:
+  adapter1: AGATCGGAAGAGCACACGTCTGAACTCCAGTCA
+  adapter2: AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGTAGATCTCGGTGGTCGCCGTATCATT
+  maxns: 1
+  minlength: 35
+  minqual: 30
+  extra: "--gzip --trimqualities"
+
+# Settings for featureCounts
+featureCounts:
+  minQual: 0
+  fracOverlap: 1
+  strandedness: 0
+  extra: ""
