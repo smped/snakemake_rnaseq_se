@@ -1,6 +1,8 @@
 ---
 title: "About"
+author: "Stephen Pederson"
 date: "`r format(Sys.Date(), '%d %B, %Y')`"
+site: workflowr::wflow_site
 output:
   workflowr::wflow_html:
     toc: false
@@ -8,101 +10,4 @@ editor_options:
   chunk_output_type: console
 ---
 
-```{r setup, echo=FALSE}
-knitr::opts_chunk$set(
-  echo = TRUE,
-  message = FALSE,
-  warning = FALSE,
-  fig.align = "center"
-)
-```
-
-```{r packages}
-library(tidyverse)
-library(DiagrammeR)
-library(pander)
-```
-
-# Pre-Processing Workflow
-
-```{r, nodeFuns}
-rm_dot_node <- function(x, node = "all"){
-  nd <- x[grepl(node, x)]
-  id <- str_replace_all(nd, "\\t([0-9]*).label.+", "\\1")
-  pat <- paste(c("(", node, "|", id, "$)"), collapse = "")
-  x[!grepl(pat, x)]
-}
-add_input_node <- function(x, node = "raw_data", ignore = "get", col = "0.00 0.00 0.00", style = "rectangle"){
-  # Find the nodes with no input
-  all_id <- x %>% 
-    str_subset("label") %>% 
-    str_replace_all("\\t([0-9*]).label.+", "\\1")
-  has_parent <- x %>% 
-    str_subset("[0-9]$") %>% 
-    str_extract("[0-9]*$")
-  to_ignore <- x %>% 
-    str_subset(ignore) %>% 
-    str_replace_all("\\t([0-9*]).label.+", "\\1")
-  no_parent <- setdiff(all_id, c(has_parent, to_ignore))
-  # Find the position to insert the node
-  new_id <- as.character(max(as.numeric(all_id)) +1)
-  new_text <- c(
-    "\t", new_id, 
-    "[label = \"", node, 
-    "\", color = \"", col,
-    "\", style=\"", style,
-    "\"];"
-    ) %>%
-    paste(collapse = "")
-  last_label <- x %>%
-    str_detect("label") %>%
-    which() %>%
-    max()
-  ## Add the node
-  x <- c(
-    x[seq_len(last_label)], new_text, x[seq(last_label + 1, length(x))]
-  )
-  new_edges <- paste0("\t", paste(new_id, no_parent, sep = " -> "))
-  c(
-    x[seq(1, length(x) - 1)],
-    new_edges,
-    x[length(x)]
-  )
-}
-```
-
-
-This is an analysis of RNA-Seq data with the data processing workflow derived from https://github.com/steveped/snakemake_rnaseq_se.
-The preprocessing workflow as implemented in this analysis is as follows:
-
-```{r plot_workflow, fig.cap = "Summary of workflow. Node names indicate snakemake rules "}
-here::here("output/rulegraph.dot") %>%
-  readLines() %>%
-  rm_dot_node() %>%
-  add_input_node(node = "RAW DATA") %>%
-  grViz()
-```
-
-# Data Description
-
-```{r}
-samples <- here::here("config/samples.tsv") %>%
-  read_tsv() %>%
-  mutate_if(
-    function(x){length(unique(x)) < length(x)},
-    as.factor
-  )
-n_fact <- sum(vapply(samples, is.factor, logical(1)))
-```
-
-A total of `r nrow(samples)` individual fastq files were used as input for the workflow.
-Given the sample sheet, `r ifelse(n_fact, "potential predictor variables were identified as:", "no potential predictor variables were identified.")`
-
-```{r, echo=FALSE}
-if (n_fact){
-  samples %>%
-    select_if(is.factor) %>%
-    lapply(levels) %>%
-    pander()
-}
-```
+Workflow and analysis written by Stephen Pederson, Dame Roma Mitchell Cancer Laboratories, Adelaide Medical School, University of Adelaide

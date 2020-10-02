@@ -1,16 +1,26 @@
-name: "snakemake_rnaseq"
+name: "My Analysis"
 output_dir: ../docs
 navbar:
-  title: "snakemake_rnaseq"
+  title: "My Analysis"
   left:
   - text: Home
     href: index.html
   - text: About
     href: about.html
+  - text: Description
+    href: description.html
+  - text: QC
+    menu:
+      - text: Raw Data
+        href: qc_raw.html
+      - text: Trimmed Data
+        href: qc_trimmed.html
+      - text: Aligned Data
+        href: qc_aligned.html
 output:
   workflowr::wflow_html:
     toc: yes
     toc_float: yes
-    code_folding: hide    
+    code_folding: hide
     theme: cosmo
     highlight: textmate

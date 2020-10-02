@@ -1,0 +1,237 @@
+---
+title: "QC On Raw Data"
+author: "Stephen Pederson"
+date: "`r format(Sys.Date(), '%d %B, %Y')`"
+output: workflowr::wflow_html
+editor_options:
+  chunk_output_type: console
+---
+
+```{r setup, echo=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE,
+  message = FALSE,
+  warning = FALSE,
+  fig.align = "center",
+  fig.height = 7,
+  fig.width = 10
+)
+```
+
+```{r packages}
+library(ngsReports)
+library(tidyverse)
+library(yaml)
+library(scales)
+library(pander)
+library(glue)
+library(plotly)
+```
+
+```{r options}
+panderOptions("table.split.table", Inf)
+panderOptions("big.mark", ",")
+theme_set(theme_bw())
+```
+
+```{r config}
+config <- here::here("config/config.yml") %>%
+  read_yaml()
+suffix <- paste0(config$tag, config$ext)
+sp <- config$ref$species %>%
+  str_replace("(^[a-z])[a-z]*_([a-z]+)", "\\1\\2") %>%
+  str_to_title()
+```
+
+```{r samples}
+samples <- config$samples %>%
+  here::here() %>%
+  read_tsv() %>%
+  mutate(
+    Filename = paste0(sample, suffix)
+  )
+```
+
+```{r check_config}
+config$analysis <- config$analysis %>%
+  lapply(intersect, y = colnames(samples)) %>%
+  .[vapply(., length, integer(1)) > 0]
+```
+
+```{r add_columns}
+if (length(config$analysis)) {
+  samples <- samples %>%
+    unite(
+      col = group, 
+      any_of(as.character(unlist(config$analysis))), 
+      sep = "_", remove = FALSE
+    )
+} else {
+  samples$group <- samples$Filename
+}
+```
+
+
+```{r group_cols}
+group_cols <- hcl.colors(
+  n = length(unique(samples$group)), 
+  palette = "Zissou 1"
+  ) %>%
+  setNames(unique(samples$group))
+```
+
+
+```{r setFigureSizes}
+fh <- round(6 + nrow(samples) / 15, 0)
+```
+
+# Quality Assessment on Raw Data
+
+```{r rawFqc}
+rawFqc <- here::here("data/raw/FastQC") %>%
+  list.files(pattern = "zip", full.names = TRUE) %>%
+  FastqcDataList()
+```
+
+```{r plotSummary, fig.height=fh, fig.cap = "Overall summary of FastQC reports"}
+plotSummary(rawFqc)
+```
+
+## Library Sizes
+
+A total of `r length(rawFqc)` libraries were contained in this dataset, with read totals ranging between `r pander(comma(range(readTotals(rawFqc)$Total_Sequences)))` reads.
+
+Across all libraries, reads were `r unique(getModule(rawFqc, "Sequence_Length")$Length)` bases.
+
+```{r plotReadTotals, fig.height=fh, fig.cap = "Library Sizes for all supplied fastq files. Any samples run as multiple libraries are  shown as the supplied multiple libraries and have not been merged."}
+plotReadTotals(rawFqc, pattern = suffix, usePlotly = TRUE)
+```
+
+## Sequence Quality
+
+```{r plotBaseQuals, fig.height=fh, fig.cap = "Mean sequencing quality scores at each base position for each library"}
+plotBaseQuals(
+  rawFqc,
+  pattern = suffix, 
+  usePlotly = TRUE,
+  dendrogram = TRUE,
+  cluster = TRUE
+  )
+```
+
+
+## GC Content
+
+```{r plotGC, fig.height=fh, fig.cap=glue("GC content shown as the % above and below the theoretical GC content for the {sp} transcriptome.")}
+plotGcContent(
+  x = rawFqc, 
+  pattern = suffix, 
+  species = sp, 
+  gcType = "Trans",
+  usePlotly = TRUE,
+  dendrogram = TRUE,
+  cluster = TRUE
+  )
+```
+
+```{r plotCumulativeGC, fig.cap = "GC content shown as a cumulative distribution for all libraries. Groups can be hidden by clicking on them in the legend."}
+ggplotly(
+  getModule(rawFqc, "Per_sequence_GC_content") %>%
+    group_by(Filename) %>%
+    mutate(
+      cumulative = cumsum(Count) / sum(Count)
+    ) %>%
+    ungroup() %>%
+    left_join(samples) %>%
+    bind_rows(
+      getGC(gcTheoretical, sp, "Trans") %>%
+        mutate_at(sp, cumsum) %>% 
+        rename_all(
+          str_replace_all, 
+          pattern = sp, replacement = "cumulative",
+        ) %>%
+        mutate(
+          Filename = "Theoretical GC",
+          group = Filename
+        )
+    ) %>%
+    mutate(
+      group = as.factor(group),
+      group = relevel(group, ref = "Theoretical GC"),
+      cumulative = round(cumulative*100, 2)
+    ) %>%
+    ggplot(aes(GC_Content, cumulative, group = Filename)) +
+    geom_line(aes(colour = group)) +
+    scale_x_continuous(label = ngsReports:::.addPercent) +
+    scale_y_continuous(label = ngsReports:::.addPercent) +
+    scale_colour_manual(
+      values = c("#000000", group_cols)
+    ) +
+    labs(
+      x = "GC Content",
+      y = "Cumulative Total",
+      colour = "Group"
+    )
+)
+```
+
+## Sequence Content
+
+```{r plotSeqContent, fig.height=fh, fig.cap = "Sequence content for each library"}
+plotSeqContent(
+  x = rawFqc, 
+  pattern = suffix, 
+  usePlotly = TRUE,
+  dendrogram = TRUE,
+  cluster = TRUE
+)
+```
+
+## AdapterContent
+
+```{r plotAdapterContent, fig.height=fh, fig.cap="Total Adapter Content for each sample shown by starting position in the read."}
+plotAdapterContent(
+  x = rawFqc, 
+  pattern = suffix, 
+  usePlotly = TRUE,
+  dendrogram = TRUE,
+  cluster = TRUE
+  )
+```
+
+## Overrepresented Sequences
+
+```{r os}
+os <- suppressMessages(getModule(rawFqc, "Over"))
+os_fh <- 6 + nrow(os) / 20
+```
+
+```{r plotOverRep, fig.height=os_fh, fig.cap = "Summary of over-represented sequences across all libraries"}
+if (nrow(os)){
+  if (length(unique(os$Filename)) > 1){
+    suppressMessages(
+      plotOverrep(
+        x = rawFqc,
+        pattern = suffix, 
+        usePlotly = TRUE,
+        dendrogram = TRUE,
+        cluster = TRUE
+      )
+    )
+  }
+}
+```
+
+```{r}
+os %>%
+  group_by(Sequence, Possible_Source) %>%
+  summarise(
+    `Found in` = n(),
+    Total = sum(Count),
+    `Largest Percent` = glue("{round(max(Percentage), 2)}%")
+  ) %>%
+  pander(
+    caption = "Summary of over-represented sequences within the raw data."
+  )
+```
+

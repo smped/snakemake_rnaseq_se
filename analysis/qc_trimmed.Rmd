@@ -1,0 +1,233 @@
+---
+title: "QC On Trimmed Data"
+author: "Stephen Pederson"
+date: "`r format(Sys.Date(), '%d %B, %Y')`"
+output: workflowr::wflow_html
+editor_options:
+  chunk_output_type: console
+---
+
+```{r setup, echo=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE,
+  message = FALSE,
+  warning = FALSE,
+  fig.align = "center",
+  fig.height = 7,
+  fig.width = 10
+)
+```
+
+```{r packages}
+library(ngsReports)
+library(tidyverse)
+library(yaml)
+library(scales)
+library(pander)
+library(glue)
+library(cowplot)
+library(plotly)
+```
+
+```{r options}
+panderOptions("table.split.table", Inf)
+panderOptions("big.mark", ",")
+theme_set(theme_bw())
+```
+
+```{r config}
+config <- here::here("config/config.yml") %>%
+  read_yaml()
+suffix <- paste0(config$tag, config$ext)
+sp <- config$ref$species %>%
+  str_replace("(^[a-z])[a-z]*_([a-z]+)", "\\1\\2") %>%
+  str_to_title()
+```
+
+```{r samples}
+samples <- config$samples %>%
+  here::here() %>%
+  read_tsv() %>%
+  mutate(
+    Filename = paste0(sample, suffix)
+  ) %>%
+  mutate_if(
+    function(x){length(unique(x)) < length(x)},
+    as.factor
+  )
+```
+
+```{r check_config}
+config$analysis <- config$analysis %>%
+  lapply(intersect, y = colnames(samples)) %>%
+  .[vapply(., length, integer(1)) > 0]
+```
+
+```{r add_columns}
+if (length(config$analysis)) {
+  samples <- samples %>%
+    unite(
+      col = group, 
+      any_of(as.character(unlist(config$analysis))), 
+      sep = "_", remove = FALSE
+    ) 
+} else {
+  samples$group <- samples$Filename
+}
+```
+
+```{r group_cols}
+group_cols <- hcl.colors(
+  n = length(unique(samples$group)), 
+  palette = "Zissou 1"
+  ) %>%
+  setNames(unique(samples$group))
+```
+
+
+```{r setFigureSizes}
+fh <- round(6 + nrow(samples) / 15, 0)
+```
+
+# Quality Assessment on Trimmed Data
+
+In the workflow, trimming was performed using the tool `AdapterRemoval` with the settings:
+
+- Adapter Sequence: `r config$trimming$adapter1`
+- Minimum length after trimming: `r config$trimming$minlength`
+`r if (grepl("trimqualities", config$trimming$extra)) paste("- Minimum quality score to retain:", config$trimming$minqual)`
+- Maximum allowable number of `N` bases to allow: `r config$trimming$maxns`
+
+## Overall Summary
+
+```{r bothFqc}
+rawFqc <- here::here("data/raw/FastQC") %>%
+  list.files(pattern = "zip", full.names = TRUE) %>%
+  FastqcDataList()
+trimFqc <- here::here("data/trimmed/FastQC") %>%
+  list.files(pattern = "zip", full.names = TRUE) %>%
+  FastqcDataList()
+```
+
+After trimming, the library showing the highest level of possible adapter content contained `r getModule(trimFqc, "Adapter") %>% pivot_longer(-any_of(c("Filename", "Position"))) %>% group_by(Filename, Position) %>% summarise(Total = sum(value)) %>% summarise(max = max(Total)) %>% dplyr::filter(max == max(max)) %>% pull(max) %>% percent(accuracy = 0.01)` of reads as containing possible adapter sequences.
+
+```{r plotSummary, fig.height=fh, fig.cap = "Comparison of FastQC summaries A) before and B), after trimming"}
+a <- plotSummary(rawFqc, pattern = suffix) 
+b <- plotSummary(trimFqc, pattern = suffix) +
+  theme(
+    axis.text.y = element_blank(),
+    axis.ticks.y = element_blank(),
+    axis.title.y = element_blank()
+  )
+plot_grid(
+  a + theme(legend.position = "none"),
+  b + theme(legend.position = "none"),
+  labels = c("A", "B"),
+  nrow = 1,
+  rel_widths = c(1.6, 1)
+) +
+  draw_plot(
+    plot = get_legend(a), 
+    x = -0.3, 
+    y = -0.4, 
+  )
+```
+
+## Library Sizes
+
+```{r compareLibSizes}
+readTotals(rawFqc) %>%
+  rename(Raw = Total_Sequences) %>%
+  left_join(
+    readTotals(trimFqc) %>%
+      rename(Trimmed = Total_Sequences)
+  ) %>%
+  mutate(
+    Remaining = Trimmed / Raw,
+    Filename = str_remove_all(Filename, suffix)
+  ) %>%
+  summarise(
+    across(c(Remaining, Trimmed), list(min = min, mean = mean, max = max))
+  ) %>%
+  pivot_longer(
+    everything()
+  ) %>%
+  separate(
+    name, into = c("Type", "Summary Statistic")
+  ) %>%
+  pivot_wider(names_from = Type, values_from = value) %>%
+  mutate(
+    Remaining = percent(Remaining, accuracy = 0.1),
+    `Summary Statistic` = str_to_title(`Summary Statistic`)
+  ) %>%
+  rename(Reads = Trimmed) %>%
+  pander(
+    caption = "Summary statistics showing the results after trimming"
+  )
+```
+
+## Sequence Length Distribution
+
+```{r plotLengthDist, fig.cap="Distribution of read lengths after trimming"}
+ggplotly(
+  getModule(trimFqc, "Sequence_Length") %>%
+    group_by(Filename) %>%
+    mutate(
+      `Cumulative Total` = cumsum(Count),
+      `Cumulative Percent` = percent(`Cumulative Total` / max(`Cumulative Total`))
+    ) %>%
+    ungroup() %>%
+    left_join(samples) %>%
+    rename_all(str_to_title) %>%
+    ggplot(aes(Length, `Cumulative Total`, group = Filename, label = `Cumulative Percent`)) +
+    geom_line(aes(colour = Group), size = 1/4) +
+    scale_y_continuous(label = comma) +
+    scale_colour_manual(
+      values = group_cols
+    ) 
+)
+```
+
+## GC Content
+
+```{r plotCumulativeGC, fig.cap = "GC content shown as a cumulative distribution for all libraries. Groups can be hidden by clicking on them in the legend."}
+ggplotly(
+  getModule(trimFqc, "Per_sequence_GC_content") %>%
+    group_by(Filename) %>%
+    mutate(
+      cumulative = cumsum(Count) / sum(Count)
+    ) %>%
+    ungroup() %>%
+    left_join(samples) %>%
+    bind_rows(
+      getGC(gcTheoretical, sp, "Trans") %>%
+        mutate_at(sp, cumsum) %>% 
+        rename_all(
+          str_replace_all, 
+          pattern = sp, replacement = "cumulative",
+        ) %>%
+        mutate(
+          Filename = "Theoretical GC",
+          group = Filename
+        )
+    ) %>%
+    mutate(
+      group = as.factor(group),
+      group = relevel(group, ref = "Theoretical GC"),
+      cumulative = round(cumulative*100, 2)
+    ) %>%
+    ggplot(aes(GC_Content, cumulative, group = Filename)) +
+    geom_line(aes(colour = group), size = 1/4) +
+    scale_x_continuous(label = ngsReports:::.addPercent) +
+    scale_y_continuous(label = ngsReports:::.addPercent) +
+    scale_colour_manual(
+      values = c("#000000", group_cols)
+    ) +
+    labs(
+      x = "GC Content",
+      y = "Cumulative Total",
+      colour = "Group"
+    )
+)
+```
+

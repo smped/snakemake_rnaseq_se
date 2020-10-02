@@ -1,5 +1,7 @@
 ---
 title: "Home"
+author: "Stephen Pederson"
+date: "`r format(Sys.Date(), '%d %B, %Y')`"
 site: workflowr::wflow_site
 output:
   workflowr::wflow_html:
@@ -8,4 +10,3 @@ editor_options:
   chunk_output_type: console
 ---
 
-Welcome to my research website.
