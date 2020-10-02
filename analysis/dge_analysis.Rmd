@@ -1,0 +1,161 @@
+---
+title: "Differential Gene Expression"
+author: "Stephen Pederson"
+date: "`r format(Sys.Date(), '%d %B, %Y')`"
+output: workflowr::wflow_html
+editor_options:
+  chunk_output_type: console
+---
+
+```{r setup, echo=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE,
+  message = FALSE,
+  warning = FALSE,
+  fig.align = "center",
+  fig.height = 7,
+  fig.width = 10
+)
+```
+
+```{r packages}
+library(tidyverse)
+library(yaml)
+library(scales)
+library(pander)
+library(glue)
+library(edgeR)
+library(AnnotationHub)
+library(ensembldb)
+```
+
+```{r options}
+panderOptions("table.split.table", Inf)
+panderOptions("big.mark", ",")
+theme_set(theme_bw())
+```
+
+```{r config}
+config <- here::here("config/config.yml") %>%
+  read_yaml()
+suffix <- paste0(config$tag)
+sp <- config$ref$species %>%
+  str_replace("(^[a-z])[a-z]*_([a-z]+)", "\\1\\2") %>%
+  str_to_title()
+```
+
+```{r samples}
+samples <- config$samples %>%
+  here::here() %>%
+  read_tsv() %>%
+  mutate(
+    Filename = paste0(sample, suffix)
+  ) %>%
+  mutate_if(
+    function(x){length(unique(x)) < length(x)},
+    as.factor
+  )
+```
+
+```{r check_config}
+config$analysis <- config$analysis %>%
+  lapply(intersect, y = colnames(samples)) %>%
+  .[vapply(., length, integer(1)) > 0]
+```
+
+```{r add_columns}
+if (length(config$analysis)) {
+  samples <- samples %>%
+    unite(
+      col = group, 
+      any_of(as.character(unlist(config$analysis))), 
+      sep = "_", remove = FALSE
+    ) 
+} else {
+  samples$group <- samples$Filename
+}
+```
+
+```{r group_cols}
+group_cols <- hcl.colors(
+  n = length(unique(samples$group)), 
+  palette = "Zissou 1"
+  ) %>%
+  setNames(unique(samples$group))
+```
+
+# Setup
+
+## Annotations
+
+```{r ah}
+ah <- AnnotationHub() %>%
+  subset(rdataclass == "EnsDb") %>%
+  subset(str_detect(description, as.character(config$ref$release))) %>%
+  subset(genome == config$ref$build)
+stopifnot(length(ah) == 1)
+```
+
+```{r ensDb}
+ensDb <- ah[[1]]
+genesGR <- genes(ensDb)
+transGR <- transcripts(ensDb)
+```
+
+```{r addTxLen}
+mcols(transGR) <- mcols(transGR) %>%
+  cbind(
+    transcriptLengths(ensDb)[rownames(.), c("nexon", "tx_len")]
+  )
+```
+
+```{r addGcLen2Genes}
+mcols(genesGR) <- mcols(genesGR) %>%
+  cbind(
+    mcols(transGR) %>%
+      as.data.frame() %>%
+      mutate(
+        tx_support_level = case_when(
+          is.na(tx_support_level) ~ 1L, 
+          TRUE ~ tx_support_level
+        )
+      ) %>%
+      group_by(gene_id) %>%
+      summarise(
+        n_tx = n(),
+        longest_tx = max(tx_len),
+        ave_tx_len = weighted.mean(tx_len, 1/tx_support_level),
+        gc_content = sum(tx_len*gc_content) / sum(tx_len)
+      ) %>%
+      column_to_rownames("gene_id") %>%
+      .[names(genesGR),]
+  )
+```
+
+Annotation data was loaded as an `EnsDb` object, using Ensembl release `r config$ref$release`.
+Transcript level gene lengths and GC content was converted to gene level values using:
+
+- **GC Content**: The total GC content divided by the total length of transcripts
+- **Gene Length**: A weighted mean of transcript lengths using $\frac{1}{TSL}$ as weights, where TSL represents the Ensembl Transcript Support Level
+
+## Count Data
+
+```{r counts}
+counts <- here::here("data/aligned/counts/counts.out") %>%
+  read_tsv(comment = "#") %>%
+  dplyr::select(Geneid, ends_with("bam")) %>%
+  rename_at(vars(ends_with("bam")), dirname) %>%
+  rename_all(basename) %>%
+  column_to_rownames("Geneid")
+```
+
+```{r fullDGE}
+fullDGE <- DGEList(
+  counts = counts,
+  samples = column_to_rownames(samples, "Filename")[colnames(counts),],
+  genes = mcols(genesGR[rownames(counts)])[, c("gene_id", "gene_name", "gene_biotype", "entrezid", "longest_tx", "ave_tx_len", "gc_content")]
+) %>%
+  calcNormFactors()
+```
+
+Prior to filtering for undetectable genes, counts were loaded as a `DGEList`, incorporating both sample and gene metadata.
