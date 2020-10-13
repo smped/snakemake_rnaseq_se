@@ -5,6 +5,9 @@ This has been written for single end reads only and will not behave correctly fo
 
 It is assumed that the reference will be obtained from [Ensembl](www.ensembl.org) and this workflow is not compatible with any other source, without further modification.
 
+__The compilation of some qc*Rmd files currently depends on bioc-devel and these rules may misbehave until the next Bioconductor release.__
+Manual compilation using `workflowr::wflow_publish('path/to/rmd', 'Commit Message')` will be effective if using `ngsReports` > 1.5.4.
+
 ## Outline
 
 The steps currently implemented are
