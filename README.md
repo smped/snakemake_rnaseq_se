@@ -46,10 +46,10 @@ The report-writing steps from `workflowr` require both of these things to have b
 
 In order to run this workflow, please ensure that you have
 
-- [] Placed unprocessed fastq files in the directory `data/raw/fastq`
-- [] Placed a `tsv` file (usually called `samples.tsv`) in the `config` folder
+1. Placed unprocessed fastq files in the directory `data/raw/fastq`
+2. Placed a `tsv` file (usually called `samples.tsv`) in the `config` folder
     + This file **must** contain a column called `sample`
-- [] Edited `config.yml` in the `config folder to ensure all parameters are correct
+3. Edited `config.yml` in the `config folder to ensure all parameters are correct
 
 ## Running the workflow
 
@@ -76,9 +76,9 @@ snakemake --use-conda --create-envs-only
 
 To run the complete workflow on phoenix, edit the script `scripts/run_snakemake.sh`:
 
-- [] Ensure you have suitable resources
-- [] Ensure you have modified the `slurm` output directories
-- [] Ensure you have modified the project root directory
+1. Ensure you have suitable resources
+2. Ensure you have modified the `slurm` output directories
+3. Ensure you have modified the project root directory
 
 Now submit the script to the queueing system
 
