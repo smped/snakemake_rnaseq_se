@@ -67,12 +67,15 @@ Now check you have everything correct
 snakemake -n
 ```
 
-Building the conda environments can also be helpful in advance.
-This only needs to be performed once, and is quite optional.
+Building the conda environments can also be helpful in advance as you can be sure every environment builds successfully.
+Unfortunately, problems with internet connections whilst building environments can be terminal for a slurm job.
+This only needs to be performed once, and is optional but advised.
 
 ```
 snakemake --use-conda --create-envs-only
 ```
+
+### Running on `phoenix`
 
 To run the complete workflow on phoenix, edit the script `scripts/run_snakemake.sh`:
 
@@ -84,4 +87,12 @@ Now submit the script to the queueing system
 
 ```
 sbatch scripts/run_snakemake.sh
+```
+
+### Running locally
+
+If you are running locally, there is no need to use the job submission script, so just run the following with the most appropriate number of threads.
+
+```
+snakemake --cores 8 --use-conda
 ```
