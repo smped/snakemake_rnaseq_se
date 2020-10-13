@@ -1,7 +1,7 @@
 rule count:
     input:
-        bams = expand(["data/aligned/bam/{sample}/Aligned.sortedByCoord.out.bam"],
-               sample = samples['sample']),
+        bams = expand(["data/aligned/bam/{sample}{tag}/Aligned.sortedByCoord.out.bam"],
+                      tag = [tag], sample = samples['sample']),
         gtf = rules.get_annotation.output
     output:
         counts_file
@@ -9,6 +9,7 @@ rule count:
         "../envs/subread.yml"
     threads: 4
     params:
+        minOverlap = config['featureCounts']['minOverlap'],
         fracOverlap = config['featureCounts']['fracOverlap'],
         q = config['featureCounts']['minQual'],
         s = config['featureCounts']['strandedness'],
@@ -19,6 +20,7 @@ rule count:
          {params.extra} \
          -Q {params.q} \
          -s {params.s} \
+         --minOverlap {params.minOverlap} \
          --fracOverlap {params.fracOverlap} \
          -T {threads} \
          -a {input.gtf} \

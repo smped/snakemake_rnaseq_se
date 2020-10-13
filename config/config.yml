@@ -1,9 +1,10 @@
 samples: config/samples.tsv
 
-# The file extension. Usually one of fq.gz/fastq.gz/fq/fastq
-# Can also be _R1_001.fastq.gz or any other constant suffix which trails
-# the values provided in the samples file
-ext: .fastq.gz
+# The file extension. Usually one of .fq.gz/.fastq.gz/.fq/.fastq
+# Any additional 'tag' such as _R1_001 which trails the values provided
+# in the samples file should be specified as the tag
+ext: .fq.gz
+tag: .r_1
 
 # The root argument tells you where the genome will be located
 # on the local system. All other arguments are required for
@@ -30,7 +31,17 @@ trimming:
 
 # Settings for featureCounts
 featureCounts:
-  minQual: 0
-  fracOverlap: 1
+  minQual: 1
+  minOverlap: 35
+  fracOverlap: 0.9
   strandedness: 0
-  extra: ""
+  extra: "-M --fraction"
+
+# Parameters for QC & Analysis.
+# These must correspond to columns in the samples file
+# and will be ignored if not. The 'group' value refers
+# to the primary grouping of interest, whilst the 'batch'
+# value refers to any secondary variables or confounders
+analysis:
+  group: treat
+  batch: flowcell_id

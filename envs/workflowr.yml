@@ -1,0 +1,19 @@
+channels:
+  - defaults
+  - conda-forge
+  - bioconda
+dependencies:
+  - r-base=4.0.2
+  - r-workflowr
+  - r-tidyverse
+  - r-pander
+  - r-here
+  - r-diagrammer
+  - r-plotly
+  - r-cowplot
+  - r-ggfortify
+  - r-ggrepel
+  - bioconductor-ngsReports
+  - bioconductor-edgeR
+  - bioconductor-AnnotationHub
+  - bioconductor-ensembldb

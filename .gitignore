@@ -5,10 +5,11 @@
 .snakemake/
 *.snakemake_timestamp
 logs/
-*.Rproj
 *.fastq
 *.fq
 *.fastq.gz
 *.fq.gz
 *.bam
 *.bai
+snakemake_rnaseq_se.Rproj
+

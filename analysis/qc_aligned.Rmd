@@ -29,6 +29,9 @@ library(glue)
 library(plotly)
 library(edgeR)
 library(ggfortify)
+library(AnnotationHub)
+library(ensembldb)
+library(magrittr)
 ```
 
 ```{r options}
@@ -104,7 +107,7 @@ alnStats <- here::here() %>%
 - Uniquely aligned reads ranged between `r pander(percent(range(alnStats$Uniquely_Mapped_Reads_Percent/100)))`
 - The percentages of mapped reads which aligned to 'too many' locations and were discarded was between `r pander(percent(range(alnStats$Percent_Of_Reads_Mapped_To_Too_Many_Loci)/100))`
 
-```{r plotAlnStats, fig.height=8, fig.cap = "Alignment rates across all libraries"}
+```{r plotAlnStats, fig.height=8, fig.cap = "*Alignment rates across all libraries*"}
 ggplotly(
   alnStats %>%
     dplyr::select(
@@ -143,9 +146,86 @@ ggplotly(
 ```
 
 
-
-
 # Read Assignment To Genes
+
+### Annotation Setup
+
+```{r ah}
+ah <- AnnotationHub() %>%
+  subset(rdataclass == "EnsDb") %>%
+  subset(str_detect(description, as.character(config$ref$release))) %>%
+  subset(genome == config$ref$build)
+stopifnot(length(ah) == 1)
+```
+
+```{r ensDb}
+ensDb <- ah[[1]]
+genesGR <- genes(ensDb)
+transGR <- transcripts(ensDb)
+```
+
+```{r addTxLen}
+mcols(transGR) <- mcols(transGR) %>%
+  cbind(
+    transcriptLengths(ensDb)[rownames(.), c("nexon", "tx_len")]
+  )
+```
+
+```{r addGcLen2Genes}
+mcols(genesGR) <- mcols(genesGR) %>%
+  as.data.frame() %>%
+  dplyr::select(
+    gene_id, gene_name, gene_biotype, entrezid
+  ) %>%
+  left_join(
+    mcols(transGR) %>%
+      as.data.frame() %>%
+      mutate(
+        tx_support_level = case_when(
+          is.na(tx_support_level) ~ 1L, 
+          TRUE ~ tx_support_level
+        )
+      ) %>%
+      group_by(gene_id) %>%
+      summarise(
+        n_tx = n(),
+        longest_tx = max(tx_len),
+        ave_tx_len = mean(tx_len),
+        gc_content = sum(tx_len*gc_content) / sum(tx_len)
+      ) %>%
+      mutate(
+        bin_length = cut(
+          x = ave_tx_len,
+          labels = seq_len(10),
+          breaks = quantile(ave_tx_len, probs = seq(0, 1, length.out = 11)),
+          include.lowest = TRUE
+        ),
+        bin_gc = cut(
+          x = gc_content,
+          labels = seq_len(10),
+          breaks = quantile(gc_content, probs = seq(0, 1, length.out = 11)),
+          include.lowest = TRUE
+        ),
+        bin = paste(bin_gc, bin_length, sep = "_")
+      ),
+    by = "gene_id"
+  ) %>%
+  set_rownames(.$gene_id) %>%
+  as("DataFrame")
+```
+
+Annotation data was loaded as an `EnsDb` object, using Ensembl release `r config$ref$release`.
+Transcript level gene lengths and GC content was converted to gene level values using:
+
+- **GC Content**: The total GC content divided by the total length of transcripts
+- **Gene Length**: The mean transcript length
+
+```{r exportGenesGR}
+write_rds(genesGR, here::here("output/genesGR.rds"), compress = "gz")
+```
+
+
+## Counts
 
 ```{r countSummary}
 countSummary <- here::here("data/aligned/counts/counts.out.summary") %>%
@@ -178,7 +258,7 @@ Using these settings:
     - Between  `r pander(percent(range(with(countSummary, Unassigned_Overlapping_Length / Total))))` were unassigned as they failed the proportion overlapping criteria
     - Between  `r pander(percent(range(with(countSummary, Unassigned_Ambiguity / Total))))` were unassigned as they were considered ambiguous
     
-```{r plotAssignmentRate, fig.height=8, fig.cap = "Rate of mapped reads being assigned to genes"}
+```{r plotAssignmentRate, fig.height=8, fig.cap = "*Rate of mapped reads being assigned to genes*"}
 ggplotly(
   countSummary %>%
     pivot_longer(
@@ -210,8 +290,6 @@ ggplotly(
 )
 ```
 
-    
-# Gene Expression
 
 ## Total Detected Genes
 
@@ -228,7 +306,7 @@ counts <- here::here("data/aligned/counts/counts.out") %>%
 - Of the `r comma(nrow(counts))` genes defined in this annotation build, `r comma(sum(rowSums(counts) == 0))` genes had no reads assigned in any samples.
 - The numbers of genes with at least one read assigned ranged between `r pander(comma(range(colSums(apply(counts, MARGIN = 2, as.logical)))))` across all samples.
 
-```{r plotDetectedGenes, fig.height=6, fig.width=8, fig.cap = "Total numbers of genes detected across all samples and groups."}
+```{r plotDetectedGenes, fig.height=6, fig.width=8, fig.cap = "*Total numbers of genes detected across all samples and groups.*"}
 counts %>%
   as_tibble() %>%
   mutate(
@@ -258,35 +336,83 @@ counts %>%
   )
 ```
 
+```{r plotDetectedVsSamples, fig.height=6, fig.width=8, fig.cap = "*Total numbers of genes detected shown against the number of samples with at least one read assigned to each gene.*"}
+plotly::ggplotly(
+  counts %>%
+    is_greater_than(0) %>%
+    rowSums() %>%
+    table() %>%
+    enframe(name = "n_samples", value = "n_genes") %>%
+    mutate(
+      n_samples = as.integer(n_samples),
+      n_genes = as.integer(n_genes),
+    ) %>%
+    arrange(desc(n_samples)) %>%
+    mutate(
+      Detectable = cumsum(n_genes),
+      Undetectable = sum(n_genes) - Detectable
+    ) %>%
+    pivot_longer(
+      cols = ends_with("table"),
+      names_to = "Status",
+      values_to = "Number of Genes"
+    ) %>%
+    dplyr::rename(
+      `Number of Samples` = n_samples,
+    ) %>%
+    ggplot(aes(`Number of Samples`, `Number of Genes`, colour = Status)) +
+    geom_line() +
+    geom_vline(
+      aes(xintercept = `Mean Sample Number`),
+      data = . %>%
+        summarise(`Mean Sample Number` = mean(`Number of Samples`)),
+      linetype = 2,
+      colour = "grey50"
+    ) +
+    scale_x_continuous(expand = expansion(c(0.01, 0.01))) +
+    scale_y_continuous(labels = comma) +
+    scale_colour_manual(values = c(rgb(0.1, 0.7, 0.2), rgb(0.7, 0.1, 0.1))) +
+    labs(
+      x = "Samples > 0"
+    )
+)
+```
+
+
 ## Library Sizes
 
 After assignment to genes, library sizes ranged between `r pander(comma(range(colSums(counts))))` reads, with a median library size of `r pander(comma(median(colSums(counts))))` reads.
 
-```{r plotLibSize, fig.height = 6, fig.width=8, fig.cap = "Library sizes across all samples and groups"}
-counts %>%
-  colSums() %>%
-  enframe(
-    name = "Filename", value = "Library Size"
-  ) %>%
-  left_join(samples) %>%
-  ggplot(aes(group, `Library Size`, colour = group)) +
-  geom_point() +
-  geom_segment(
-    aes(xend = group, y = 0, yend = `Library Size`),
-    data = . %>% 
-      group_by(group) %>%
-      summarise(`Library Size` = min(`Library Size`)),
-    colour = "black", size = 1/4) +
-  scale_y_continuous(labels = comma, expand = expansion(c(0, 0.05))) +
-  scale_colour_manual(values = group_cols) +
-  labs(
-    x = "Group", 
-    colour = "Group"
-  )
+```{r plotLibSize, fig.height = 6, fig.width=8, fig.cap = "*Library sizes across all samples and groups*"}
+plotly::ggplotly(
+  counts %>%
+    colSums() %>%
+    enframe(
+      name = "Filename", value = "Library Size"
+    ) %>%
+    left_join(samples) %>%
+    ggplot(aes(group, `Library Size`, colour = group, label = Filename)) +
+    geom_point() +
+    geom_segment(
+      aes(x = group, xend = group, y = 0, yend = `Library Size`),
+      data = . %>% 
+        group_by(group) %>%
+        summarise(`Library Size` = min(`Library Size`)),
+      colour = "black", size = 1/4,
+      inherit.aes = FALSE
+    ) +
+    scale_y_continuous(labels = comma, expand = expansion(c(0, 0.05))) +
+    scale_colour_manual(values = group_cols) +
+    labs(
+      x = "Group", 
+      colour = "Group"
+    )
+)
 ```
 
-
 ## PCA
+
+### Sample Similarity
 
 ```{r prcomp}
 pca <- counts %>%
@@ -298,10 +424,69 @@ pca <- counts %>%
 
 A PCA was performed using logCPM values from the subset of `r comma(sum(rowSums(counts == 0) < ncol(counts)/2))` genes with at least one read in more than half of the samples.
 
-```{r plotPCA, fig.height=6, fig.width=8, fig.cap="PCA plot of all samples"}
+```{r plotPCA, fig.height=6, fig.width=8, fig.cap="*PCA plot of all samples.*"}
+showLabel <- nrow(samples) <= 20
 pca %>%
-  autoplot(data = samples, colour = "group") +
+  autoplot(data = samples, colour = "group", label = showLabel, label.repel = showLabel) +
   labs(colour = "Group") +
   scale_colour_manual(values = group_cols)
+```
+
+### GC and Length Biases
+
+```{r plotPCA_GC_Length, fig.height=6, fig.cap = "*Contribution of each GC/Length Bin to PC1 and PC2. Fill colours indicate the t-statistic, with tranparency denoting significance as -log10(p), using Bonferroni-adjusted p-values.*"}
+mcols(genesGR) %>%
+  as.data.frame() %>%
+  dplyr::filter(gene_id %in% rownames(pca$rotation)) %>%
+  as_tibble() %>%
+  mutate(
+    bin_length = cut(
+      x = ave_tx_len,
+      labels = seq_len(10),
+      breaks = quantile(ave_tx_len, probs = seq(0, 1, length.out = 11)),
+      include.lowest = TRUE
+    ),
+    bin_gc = cut(
+      x = gc_content,
+      labels = seq_len(10),
+      breaks = quantile(gc_content, probs = seq(0, 1, length.out = 11)),
+      include.lowest = TRUE
+    ),
+    bin = paste(bin_gc, bin_length, sep = "_")
+  ) %>%
+  dplyr::select(gene_id, contains("bin")) %>%
+  mutate(
+    PC1 = pca$rotation[gene_id, "PC1"],
+    PC2 = pca$rotation[gene_id, "PC2"]
+  ) %>%
+  pivot_longer(
+    cols = c("PC1", "PC2"),
+    names_to = "PC",
+    values_to = "value"
+  ) %>%
+  group_by(PC, bin_gc, bin_length, bin) %>%
+  summarise(
+    Size = n(),
+    mean = mean(value),
+    sd = sd(value),
+    t = t.test(value)$statistic,
+    p = t.test(value)$p.value,
+    adjP = p.adjust(p, method = "bonf")
+  ) %>%
+  ggplot(
+    aes(bin_length, bin_gc, colour = t, alpha = -log10(adjP), size = Size)
+  ) +
+  geom_point() +
+  facet_wrap(~PC) +
+  scale_colour_gradient2() +
+  scale_size_continuous(range = c(1, 10)) +
+  labs(
+    x = "Average Transcript Length",
+    y = "GC Content",
+    alpha = expression(paste(-log[10], p[adj]))) +
+  theme(
+    panel.grid = element_blank(),
+    legend.position = "bottom"
+    ) 
 ```
 

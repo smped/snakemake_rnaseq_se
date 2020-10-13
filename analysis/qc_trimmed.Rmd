@@ -103,15 +103,17 @@ In the workflow, trimming was performed using the tool `AdapterRemoval` with the
 ```{r bothFqc}
 rawFqc <- here::here("data/raw/FastQC") %>%
   list.files(pattern = "zip", full.names = TRUE) %>%
-  FastqcDataList()
+  FastqcDataList() %>%
+  .[fqName(.) %in% samples$Filename]
 trimFqc <- here::here("data/trimmed/FastQC") %>%
   list.files(pattern = "zip", full.names = TRUE) %>%
-  FastqcDataList()
+  FastqcDataList() %>%
+  .[fqName(.) %in% samples$Filename]
 ```
 
 After trimming, the library showing the highest level of possible adapter content contained `r getModule(trimFqc, "Adapter") %>% pivot_longer(-any_of(c("Filename", "Position"))) %>% group_by(Filename, Position) %>% summarise(Total = sum(value)) %>% summarise(max = max(Total)) %>% dplyr::filter(max == max(max)) %>% pull(max) %>% percent(accuracy = 0.01)` of reads as containing possible adapter sequences.
 
-```{r plotSummary, fig.height=fh, fig.cap = "Comparison of FastQC summaries A) before and B), after trimming"}
+```{r plotSummary, fig.height=fh, fig.cap = "*Comparison of FastQC summaries A) before and B), after trimming*"}
 a <- plotSummary(rawFqc, pattern = suffix) 
 b <- plotSummary(trimFqc, pattern = suffix) +
   theme(
@@ -162,13 +164,13 @@ readTotals(rawFqc) %>%
   ) %>%
   rename(Reads = Trimmed) %>%
   pander(
-    caption = "Summary statistics showing the results after trimming"
+    caption = "*Summary statistics showing the results after trimming*"
   )
 ```
 
 ## Sequence Length Distribution
 
-```{r plotLengthDist, fig.cap="Distribution of read lengths after trimming"}
+```{r plotLengthDist, fig.cap="*Distribution of read lengths after trimming*"}
 ggplotly(
   getModule(trimFqc, "Sequence_Length") %>%
     group_by(Filename) %>%
@@ -190,7 +192,7 @@ ggplotly(
 
 ## GC Content
 
-```{r plotCumulativeGC, fig.cap = "GC content shown as a cumulative distribution for all libraries. Groups can be hidden by clicking on them in the legend."}
+```{r plotCumulativeGC, fig.cap = "*GC content shown as a cumulative distribution for all libraries. Groups can be hidden by clicking on them in the legend.*"}
 ggplotly(
   getModule(trimFqc, "Per_sequence_GC_content") %>%
     group_by(Filename) %>%
@@ -231,3 +233,30 @@ ggplotly(
 )
 ```
 
+## Sequence Content
+
+```{r plotSeqContentResid, fig.cap = "*Base and Position specific residuals for each sample. The mean base content at each position was calculated for each nucleotide, and the sample-specific residuals calculated.*"}
+plotly::ggplotly(
+  getModule(trimFqc, module = "Per_base_sequence_content") %>% 
+    mutate(Base = fct_inorder(Base)) %>%
+    group_by(Base) %>% 
+    mutate(
+      across(c("A", "C", "G", "T"), function(x){x - mean(x)}) 
+    ) %>% 
+    pivot_longer(
+      cols = c("A", "C", "G", "T"), 
+      names_to = "Nuc", 
+      values_to = "resid"
+    ) %>%
+    left_join(samples) %>%
+    ggplot(
+      aes(Base, resid, group = Filename, colour = group)
+    ) + 
+    geom_line() +
+    facet_wrap(~Nuc) + 
+    scale_colour_manual(values = group_cols) +
+    labs(
+      x = "Read Position", y = "Residual", colour = "Group"
+    )
+)
+```

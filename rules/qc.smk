@@ -31,7 +31,7 @@ rule raw_fastqc:
 
 rule trim_fastqc:
     input:
-        "data/trimmed/fastq/{sample}" + ext
+        rules.adapter_removal.output.r1
     output:
         html="data/trimmed/FastQC/{sample}_fastqc.html",
         zip="data/trimmed/FastQC/{sample}_fastqc.zip"

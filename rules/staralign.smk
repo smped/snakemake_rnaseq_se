@@ -3,7 +3,8 @@ rule star_se:
         fq1 = "data/trimmed/fastq/{sample}" + ext,
         index = rules.star_index.output
     output:
-        "data/aligned/bam/{sample}/Aligned.sortedByCoord.out.bam"
+        bam = "data/aligned/bam/{sample}/Aligned.sortedByCoord.out.bam",
+        log = "data/aligned/bam/{sample}/Log.final.out"
     conda:
         "../envs/star.yml"
     log:
@@ -16,7 +17,7 @@ rule star_se:
 
 rule index_bam:
     input:
-        rules.star_se.output
+        rules.star_se.output.bam
     output:
         "data/aligned/bam/{sample}/Aligned.sortedByCoord.out.bam.bai"
     conda:

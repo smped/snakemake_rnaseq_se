@@ -35,20 +35,20 @@ config <- here::here("config/config.yml") %>%
 rm_dot_node <- function(x, node = "all"){
   nd <- x[grepl(node, x)]
   id <- str_replace_all(nd, "\\t([0-9]*).label.+", "\\1")
-  pat <- paste(c("(", node, "|", id, "$)"), collapse = "")
+  pat <- paste(c("(", node, "| ", id, "$)"), collapse = "")
   x[!grepl(pat, x)]
 }
-add_input_node <- function(x, node = "raw_data", ignore = "get", col = "0.00 0.00 0.00", style = "rectangle"){
+add_input_node <- function(x, node = "raw_data", ignore = "(get|build|make)", col = "0.00 0.00 0.00", style = "rectangle"){
   # Find the nodes with no input
   all_id <- x %>% 
     str_subset("label") %>% 
-    str_replace_all("\\t([0-9*]).label.+", "\\1")
+    str_replace_all("\\t([0-9]*).label.+", "\\1")
   has_parent <- x %>% 
     str_subset("[0-9]$") %>% 
     str_extract("[0-9]*$")
   to_ignore <- x %>% 
     str_subset(ignore) %>% 
-    str_replace_all("\\t([0-9*]).label.+", "\\1")
+    str_replace_all("\\t([0-9]*).label.+", "\\1")
   no_parent <- setdiff(all_id, c(has_parent, to_ignore))
   # Find the position to insert the node
   new_id <- as.character(max(as.numeric(all_id)) +1)
@@ -81,9 +81,9 @@ add_input_node <- function(x, node = "raw_data", ignore = "get", col = "0.00 0.0
 
 
 This is an analysis of RNA-Seq data with the data processing workflow derived from https://github.com/steveped/snakemake_rnaseq_se.
-The preprocessing workflow as implemented in this analysis is as follows:
+The pre-processing workflow as implemented in this analysis is as follows:
 
-```{r plot_workflow, fig.cap = "Summary of workflow. Node names indicate snakemake rules "}
+```{r plot_workflow, fig.cap = "*Summary of workflow. Node names indicate snakemake rules*"}
 here::here("output/rulegraph.dot") %>%
   readLines() %>%
   rm_dot_node() %>%
@@ -98,8 +98,6 @@ Parameters set for the complete workflow are:
 ```{r printYAML, echo=FALSE, results='asis'}
 pander(config)
 ```
-
-
 
 # Data Description
 

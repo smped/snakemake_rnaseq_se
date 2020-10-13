@@ -1,17 +1,17 @@
 #!/bin/bash
 #SBATCH -p batch
 #SBATCH -N 1
-#SBATCH -n 6
+#SBATCH -n 4
 #SBATCH --time=1:00:00
-#SBATCH --mem=48GB
-#SBATCH -o /home/a1018048/slurm/snakemake_rnaseq/%x_%j.out
-#SBATCH -e /home/a1018048/slurm/snakemake_rnaseq/%x_%j.err
+#SBATCH --mem=32GB
+#SBATCH -o /home/a1018048/slurm/20131906_MDA-MB-453_DHT-RNASeq/%x_%j.out
+#SBATCH -e /home/a1018048/slurm/20131906_MDA-MB-453_DHT-RNASeq/%x_%j.err
 #SBATCH --mail-type=END
 #SBATCH --mail-type=FAIL
 #SBATCH --mail-user=stephen.pederson@adelaide.edu.au
 
 ## Cores
-CORES=12
+CORES=8
 if [ -d "/hpcfs" ]; then
 	module load arch/arch/haswell
 	module load arch/haswell
@@ -26,17 +26,11 @@ else
 fi
 
 ## Project Root
-PROJ=${HPC}/users/a1018048/snakemake_rnaseq
+PROJ=${HPC}/users/a1018048/20131906_MDA-MB-453_DHT-RNASeq
 
 ## The environment containing snakemake
 micromamba activate snakemake
 cd ${PROJ}
-
-## Create dot and pdf files for visualisation
-snakemake --dag > output/dag.dot
-dot -Tpdf output/dag.dot > output/dag.pdf
-snakemake --rulegraph > output/rulegraph.dot
-dot -Tpdf output/rulegraph.dot > output/rulegraph.pdf
 
 ## Run snakemake
 snakemake \
