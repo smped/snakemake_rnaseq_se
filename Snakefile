@@ -19,7 +19,7 @@ ref_path = os.path.join(ref_root, 'dna', ref_fa)
 # By default, the wrapper will extract the file
 gtf = species.capitalize() + "." + build + "." + release + ".gtf"
 gtf_path = os.path.join(ref_root, gtf)
-sj_oh = config['star']['sjdbOverhang']
+sj_oh = str(config['star']['sjdbOverhang'])
 star_dir = os.path.join(ref_root, 'dna', 'star_sjOverhang' + sj_oh)
 
 # Samples
