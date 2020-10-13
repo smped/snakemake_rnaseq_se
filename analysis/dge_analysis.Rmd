@@ -98,45 +98,12 @@ stopifnot(length(ah) == 1)
 
 ```{r ensDb}
 ensDb <- ah[[1]]
-genesGR <- genes(ensDb)
-transGR <- transcripts(ensDb)
+genesGR <- read_rds(here::here("output/genesGR.rds"))
 ```
 
-```{r addTxLen}
-mcols(transGR) <- mcols(transGR) %>%
-  cbind(
-    transcriptLengths(ensDb)[rownames(.), c("nexon", "tx_len")]
-  )
-```
-
-```{r addGcLen2Genes}
-mcols(genesGR) <- mcols(genesGR) %>%
-  cbind(
-    mcols(transGR) %>%
-      as.data.frame() %>%
-      mutate(
-        tx_support_level = case_when(
-          is.na(tx_support_level) ~ 1L, 
-          TRUE ~ tx_support_level
-        )
-      ) %>%
-      group_by(gene_id) %>%
-      summarise(
-        n_tx = n(),
-        longest_tx = max(tx_len),
-        ave_tx_len = weighted.mean(tx_len, 1/tx_support_level),
-        gc_content = sum(tx_len*gc_content) / sum(tx_len)
-      ) %>%
-      column_to_rownames("gene_id") %>%
-      .[names(genesGR),]
-  )
-```
-
-Annotation data was loaded as an `EnsDb` object, using Ensembl release `r config$ref$release`.
-Transcript level gene lengths and GC content was converted to gene level values using:
-
-- **GC Content**: The total GC content divided by the total length of transcripts
-- **Gene Length**: A weighted mean of transcript lengths using $\frac{1}{TSL}$ as weights, where TSL represents the Ensembl Transcript Support Level
+Gene annotations were again loaded from Ensembl Release `r ensemblVersion(ensDb)`.
+The [previously defined](qc_aligned.html#Annotation_Setup) `GenomicRanges` object containing GC content and Gene Length was also loaded,
+containing information for `r comma(length(genesGR))` genes.
 
 ## Count Data
 
@@ -150,7 +117,7 @@ counts <- here::here("data/aligned/counts/counts.out") %>%
 ```
 
 ```{r fullDGE}
-fullDGE <- DGEList(
+dge <- DGEList(
   counts = counts,
   samples = column_to_rownames(samples, "Filename")[colnames(counts),],
   genes = mcols(genesGR[rownames(counts)])[, c("gene_id", "gene_name", "gene_biotype", "entrezid", "longest_tx", "ave_tx_len", "gc_content")]

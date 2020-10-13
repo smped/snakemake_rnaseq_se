@@ -10,7 +10,7 @@ rule star_se:
     log:
         "logs/star/{sample}.log"
     params:
-        extra = "--outSAMtype BAM SortedByCoordinate"
+        extra = config['star']['align_extra']
     threads: 8
     script:
         "../scripts/star_alignment.py"

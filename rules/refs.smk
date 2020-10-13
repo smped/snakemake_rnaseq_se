@@ -38,8 +38,8 @@ rule star_index:
     threads:
         16
     params:
-        extra = "",
-        sjdbOverhang = "100"
+        extra = config['star']['indexing_extra'],
+        sjdbOverhang = config['star']['sjdbOverhang']
     log:
         "logs/refs/star_index.log"
     shell:

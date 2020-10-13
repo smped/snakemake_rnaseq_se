@@ -16,7 +16,18 @@ ref:
   seqtype: primary_assembly
   species: homo_sapiens
 
-# Given we only have 75nt reads, don't group during fastqc
+# Arguments passed to STAR
+# sjdbOverhang should be ReadLength - 1 if you have reads < 50nt.
+# Otherwise the default setting of 100 will be suitable https://groups.google.com/g/rna-star/c/x60p1C-pGbc?pli=1
+# Any additional parameters to apply during indexing should be supplied using
+# indexing_extra, whilst additional parameters for alignment are passed through
+# align_extra
+star:
+  sjdbOverhang: 100
+  indexing_extra: ""
+  align_extra: "--outSAMtype BAM SortedByCoordinate"
+
+# If you have short reads (<150nt) don't group during fastqc
 fastqc:
   params: "--nogroup --noextract"
 
@@ -29,7 +40,11 @@ trimming:
   minqual: 30
   extra: "--gzip --trimqualities"
 
-# Settings for featureCounts
+# Settings for featureCounts. To set this to count strictly exonic reads,
+# change fracOverlap to be the value 1. The value minOverlap may also need 
+# adjusting based on your own read lengths. This is also set to include
+# multi-mapping reads using fractional counts by default. Please remove 
+# "-M --fraction" to disable this
 featureCounts:
   minQual: 1
   minOverlap: 35

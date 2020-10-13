@@ -55,7 +55,8 @@ rule build_qc_aligned:
                           sample = samples['sample'], tag = [tag]),
         rmd = "analysis/qc_aligned.Rmd"
     output:
-        html = "docs/qc_aligned.html"
+        html = "docs/qc_aligned.html",
+        rds = "output/genesGR.rds"
     conda:
         "../envs/workflowr.yml"
     log:
@@ -65,6 +66,22 @@ rule build_qc_aligned:
        """
        R -e "workflowr::wflow_build('{input.rmd}')" 2>&1 > {log}
        """
+       
+rule build_dge_analysis:
+    input:
+        rds = rules.build_qc_aligned.output.rds,
+        rmd = "analysis/dge_analysis.Rmd"
+    output:
+        html = "docs/dge_analysis.html"
+    conda:
+        "../envs/workflowr.yml"
+    log:
+        "logs/workflowr/dge_analysis.log"
+    threads: 1
+    shell:
+       """
+       R -e "workflowr::wflow_build('{input.rmd}')" 2>&1 > {log}
+       """    
 
 rule build_wflow_site_index:
     input:
@@ -72,7 +89,8 @@ rule build_wflow_site_index:
         desc = rules.build_wflow_description.output.html,
         raw = rules.build_qc_raw.output.html,
         trimmed = rules.build_qc_trimmed.output.html,
-        aligned = rules.build_qc_aligned.output.html
+        aligned = rules.build_qc_aligned.output.html,
+        dge = rules.build_dge_analysis.output.html
     output:
         html = "docs/index.html"
     conda:
