@@ -42,14 +42,20 @@ In order to run this workflow, please ensure that you have
 
 Once you have placed your data in `data/faw/fastq`, edited the file `samples.tsv` and checked `config/config.yml`, please run the workflow as follows:
 
-First check you have everything correct
+First, activate your `snakemake` conda/mamba environment
+
+```
+micromamba activate snakemake
+```
+
+Now check you have everything correct
 
 ```
 snakemake -n
 ```
 
 Building the conda environments can also be helpful in advance.
-This only needs to be performed once
+This only needs to be performed once, and is quite optional.
 
 ```
 snakemake --use-conda --create-envs-only
