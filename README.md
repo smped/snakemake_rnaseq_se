@@ -28,15 +28,28 @@ Additional tasks performed are
 Snakemake rules rely heavily on those provided at https://github.com/snakemake/snakemake-wrappers.
 Version numbers for these are also available at https://snakemake-wrappers.readthedocs.io/
 
+## Starting A New Analysis
+
+This is a Template repository so to begin a new analysis:
+
+1. Click `Use this template` at the top of the page
+2. Decide on your new repository name
+3. Clone to your local machine
+4. Add an R-project file by opening a new project in the root directory
+5. Use `git push` to update the remote repository
+6. Clone to `phoenix`
+
+This order ensures that we have a `git` repository ready to go and an `Rproj` file.
+The report-writing steps from `workflowr` require both of these things to have been performed beforehand.
+
 ## Essential Files
 
 In order to run this workflow, please ensure that you have
 
-1. Placed unprocessed fastq files in the directory `data/raw/fastq`
-2. Placed a `tsv` file (usually called `samples.tsv`) in the `config` folder
+- [] Placed unprocessed fastq files in the directory `data/raw/fastq`
+- [] Placed a `tsv` file (usually called `samples.tsv`) in the `config` folder
     + This file **must** contain a column called `sample`
-3. Edited `config.yml` in the `config folder to ensure all parameters are correct
-4. An R Project file in the project root directory. This is required by `workflowr`
+- [] Edited `config.yml` in the `config folder to ensure all parameters are correct
 
 ## Running the workflow
 
@@ -61,7 +74,13 @@ This only needs to be performed once, and is quite optional.
 snakemake --use-conda --create-envs-only
 ```
 
-To run the complete workflow on phoenix, edit the script `scripts/run_snakemake.sh` with suitable resources, then:
+To run the complete workflow on phoenix, edit the script `scripts/run_snakemake.sh`:
+
+- [] Ensure you have suitable resources
+- [] Ensure you have modified the `slurm` output directories
+- [] Ensure you have modified the project root directory
+
+Now submit the script to the queueing system
 
 ```
 sbatch scripts/run_snakemake.sh
