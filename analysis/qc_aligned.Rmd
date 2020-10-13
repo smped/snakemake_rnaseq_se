@@ -94,13 +94,18 @@ fh <- round(6 + nrow(samples) / 15, 0)
 # Alignment Statistics
 
 ```{r alnStats}
-alnStats <- here::here() %>%
-  list.files(recursive = TRUE, pattern = "Log.final.out") %>%
-  importNgsLogs(type = "star", stripPaths = FALSE) %>%
-  mutate(
-    Filename = basename(dirname(Filename))
-  ) %>%
-  left_join(samples, by = "Filename") 
+alnFiles <- here::here() %>%
+  list.files(recursive = TRUE, pattern = "Log.final.out") 
+alnStats <- alnFiles %>%
+  lapply(function(x){
+    importNgsLogs(x, type = "star") %>%
+      mutate(Filename = x)
+  }) %>%
+  bind_rows() %>%
+  mutate(Filename = basename(dirname(Filename))) %>%
+  left_join(samples, by = "Filename") %>%
+  head() %>%
+  as.data.frame()
 ```
 
 - Across all files the total alignment rate ranged between `r pander(percent(range(alnStats$Total_Mapped_Percent)/100))`
