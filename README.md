@@ -34,12 +34,9 @@ This is a Template repository so to begin a new analysis:
 
 1. Click `Use this template` at the top of the page
 2. Decide on your new repository name
-3. Clone to your local machine
-4. Add an R-project file by opening a new project in the root directory
-5. Use `git push` to update the remote repository
-6. Clone to `phoenix`
+3. Clone to your new repository to `phoenix` (*not this one*)
 
-This order ensures that we have a `git` repository ready to go and an `Rproj` file.
+This order ensures that we have a `git` repository ready to go and an `Rproj` file will be built as part of the workflow.
 The report-writing steps from `workflowr` require both of these things to have been performed beforehand.
 
 ## Essential Files
