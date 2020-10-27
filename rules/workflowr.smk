@@ -1,5 +1,13 @@
+rule create_site_yaml:
+    output: "analysis/_site.yml"
+    conda: "../envs/workflowr.yml"
+    log: "logs/workflowr/create_site_yaml.log"
+    threads: 1
+    script: "../scripts/generateSiteYAML.R"
+
 rule build_wflow_description:
     input:
+        yaml = rules.create_site_yaml.output,
         dot = rules.make_rulegraph.output.dot,
         rmd = "analysis/description.Rmd"
     output:
@@ -16,6 +24,7 @@ rule build_wflow_description:
 
 rule build_qc_raw:
     input:
+        yaml = rules.create_site_yaml.output,
         fqc = expand(["data/raw/FastQC/{sample}{tag}_fastqc.zip"],
                      tag = [tag], sample = samples['sample']),
         rmd = "analysis/qc_raw.Rmd"
@@ -33,6 +42,7 @@ rule build_qc_raw:
 
 rule build_qc_trimmed:
     input:
+        yaml = rules.create_site_yaml.output,
         fqc = expand(["data/trimmed/FastQC/{sample}{tag}_fastqc.zip"],
                      tag = [tag], sample = samples['sample']),
         rmd = "analysis/qc_trimmed.Rmd"
@@ -50,6 +60,7 @@ rule build_qc_trimmed:
 
 rule build_qc_aligned:
     input:
+        yaml = rules.create_site_yaml.output,
         counts = rules.count.output,
         aln_logs = expand(["data/aligned/bam/{sample}{tag}/Log.final.out"],
                           sample = samples['sample'], tag = [tag]),
@@ -69,6 +80,7 @@ rule build_qc_aligned:
        
 rule build_dge_analysis:
     input:
+        yaml = rules.create_site_yaml.output,
         rds = rules.build_qc_aligned.output.rds,
         rmd = "analysis/dge_analysis.Rmd"
     output:
@@ -85,6 +97,7 @@ rule build_dge_analysis:
 
 rule build_wflow_site_index:
     input:
+        yaml = rules.create_site_yaml.output,
         rmd = "analysis/index.Rmd",
         desc = rules.build_wflow_description.output.html,
         raw = rules.build_qc_raw.output.html,

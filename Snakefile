@@ -29,7 +29,7 @@ samples = pd.read_table(config["samples"])
 counts_file = "data/aligned/counts/counts.out"
 
 # Define outputs
-ALL_RULEGRAPH = expand(["output/rulegraph.{suffix}"],
+ALL_RULEGRAPH = expand(["rules/rulegraph.{suffix}"],
                        suffix = ['dot', 'pdf'])
 ALL_REFS = [ref_path, gtf_path, star_dir]
 ALL_FQC = expand(["data/{step}/FastQC/{sample}{tag}_fastqc.{suffix}"],
