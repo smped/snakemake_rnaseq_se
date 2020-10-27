@@ -3,7 +3,7 @@ rule star_se:
         fq1 = "data/trimmed/fastq/{sample}" + ext,
         index = rules.star_index.output
     output:
-        bam = "data/aligned/bam/{sample}/Aligned.sortedByCoord.out.bam",
+        bam = temp("data/aligned/bam/{sample}/Aligned.sortedByCoord.out.bam"),
         log = "data/aligned/bam/{sample}/Log.final.out"
     conda:
         "../envs/star.yml"
@@ -19,7 +19,7 @@ rule index_bam:
     input:
         rules.star_se.output.bam
     output:
-        "data/aligned/bam/{sample}/Aligned.sortedByCoord.out.bam.bai"
+        temp("data/aligned/bam/{sample}/Aligned.sortedByCoord.out.bam.bai")
     conda:
         "../envs/samtools.yml"
     threads: 1

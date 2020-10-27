@@ -2,7 +2,7 @@ rule adapter_removal:
     input:
         r1 = "data/raw/fastq/{sample}" + ext
     output:
-        r1 = "data/trimmed/fastq/{sample}" + ext,
+        r1 = temp("data/trimmed/fastq/{sample}" + ext),
         log = "data/trimmed/logs/{sample}.settings"
     conda:
         "../envs/adapterremoval.yml"
