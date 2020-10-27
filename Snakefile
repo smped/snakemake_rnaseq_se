@@ -1,5 +1,5 @@
 import pandas as pd
-import os.path
+import os
 
 configfile: "config/config.yml"
 

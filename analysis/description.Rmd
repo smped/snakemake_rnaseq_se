@@ -84,7 +84,7 @@ This is an analysis of RNA-Seq data with the data processing workflow derived fr
 The pre-processing workflow as implemented in this analysis is as follows:
 
 ```{r plot_workflow, fig.cap = "*Summary of workflow. Node names indicate snakemake rules*"}
-here::here("output/rulegraph.dot") %>%
+here::here("rules/rulegraph.dot") %>%
   readLines() %>%
   rm_dot_node() %>%
   add_input_node(node = "RAW DATA") %>%

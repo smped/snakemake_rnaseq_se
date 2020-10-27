@@ -5,11 +5,26 @@ rule create_site_yaml:
     threads: 1
     script: "../scripts/generateSiteYAML.R"
 
+rule make_rproj:
+    output: os.getcwd() + ".Rproj"
+    threads: 1
+    shell:
+        """
+        if [[ ! -f {output} ]]; then
+          echo -e "Version: 1.0\n" > {output}
+          echo -e "RestoreWorkspace: Default\nSaveWorkspace: Default\nAlwaysSaveHistory: Default\n" >> {output}
+          echo -e "EnableCodeIndexing: Yes\nUseSpacesForTab: Yes\nNumSpacesForTab: 2\nEncoding: UTF-8\n" >> {output}
+          echo -e "RnwWeave: knitr\nLaTeX: pdfLaTeX\n" >> {output}
+          echo -e "AutoAppendNewline: Yes\nStripTrailingWhitespace: Yes" >> {output}
+        fi
+        """
+
 rule build_wflow_description:
     input:
         yaml = rules.create_site_yaml.output,
         dot = rules.make_rulegraph.output.dot,
-        rmd = "analysis/description.Rmd"
+        rmd = "analysis/description.Rmd",
+        rproj = rules.make_rproj.output
     output:
         html = "docs/description.html"
     conda:
@@ -27,7 +42,8 @@ rule build_qc_raw:
         yaml = rules.create_site_yaml.output,
         fqc = expand(["data/raw/FastQC/{sample}{tag}_fastqc.zip"],
                      tag = [tag], sample = samples['sample']),
-        rmd = "analysis/qc_raw.Rmd"
+        rmd = "analysis/qc_raw.Rmd",
+        rproj = rules.make_rproj.output
     output:
         html = "docs/qc_raw.html"
     conda:
@@ -45,7 +61,8 @@ rule build_qc_trimmed:
         yaml = rules.create_site_yaml.output,
         fqc = expand(["data/trimmed/FastQC/{sample}{tag}_fastqc.zip"],
                      tag = [tag], sample = samples['sample']),
-        rmd = "analysis/qc_trimmed.Rmd"
+        rmd = "analysis/qc_trimmed.Rmd",
+        rproj = rules.make_rproj.output
     output:
         html = "docs/qc_trimmed.html"
     conda:
@@ -64,7 +81,8 @@ rule build_qc_aligned:
         counts = rules.count.output,
         aln_logs = expand(["data/aligned/bam/{sample}{tag}/Log.final.out"],
                           sample = samples['sample'], tag = [tag]),
-        rmd = "analysis/qc_aligned.Rmd"
+        rmd = "analysis/qc_aligned.Rmd",
+        rproj = rules.make_rproj.output
     output:
         html = "docs/qc_aligned.html",
         rds = "output/genesGR.rds"
@@ -77,12 +95,13 @@ rule build_qc_aligned:
        """
        R -e "workflowr::wflow_build('{input.rmd}')" 2>&1 > {log}
        """
-       
+
 rule build_dge_analysis:
     input:
         yaml = rules.create_site_yaml.output,
         rds = rules.build_qc_aligned.output.rds,
-        rmd = "analysis/dge_analysis.Rmd"
+        rmd = "analysis/dge_analysis.Rmd",
+        rproj = rules.make_rproj.output
     output:
         html = "docs/dge_analysis.html"
     conda:
@@ -93,7 +112,7 @@ rule build_dge_analysis:
     shell:
        """
        R -e "workflowr::wflow_build('{input.rmd}')" 2>&1 > {log}
-       """    
+       """
 
 rule build_wflow_site_index:
     input:
@@ -103,7 +122,8 @@ rule build_wflow_site_index:
         raw = rules.build_qc_raw.output.html,
         trimmed = rules.build_qc_trimmed.output.html,
         aligned = rules.build_qc_aligned.output.html,
-        dge = rules.build_dge_analysis.output.html
+        dge = rules.build_dge_analysis.output.html,
+        rproj = rules.make_rproj.output
     output:
         html = "docs/index.html"
     conda:

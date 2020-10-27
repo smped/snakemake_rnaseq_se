@@ -104,7 +104,6 @@ alnStats <- alnFiles %>%
   bind_rows() %>%
   mutate(Filename = basename(dirname(Filename))) %>%
   left_join(samples, by = "Filename") %>%
-  head() %>%
   as.data.frame()
 ```
 
