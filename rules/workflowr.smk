@@ -6,7 +6,7 @@ rule create_site_yaml:
     script: "../scripts/generateSiteYAML.R"
 
 rule make_rproj:
-    output: os.getcwd() + ".Rproj"
+    output: os.path.basename(os.getcwd() + ".Rproj")
     threads: 1
     shell:
         """
