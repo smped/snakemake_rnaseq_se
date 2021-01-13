@@ -34,7 +34,7 @@ This is a Template repository so to begin a new analysis:
 
 1. Click `Use this template` at the top of the page
 2. Decide on your new repository name
-3. Clone to your new repository to `phoenix` (*not this one*)
+3. Clone to your new repository to `phoenix` (*not the template repository*)
 
 This order ensures that we have a `git` repository ready to go and an `Rproj` file will be built as part of the workflow.
 The report-writing steps from `workflowr` require both of these things to have been performed beforehand.
@@ -46,7 +46,7 @@ In order to run this workflow, please ensure that you have
 1. Placed unprocessed fastq files in the directory `data/raw/fastq`
 2. Placed a `tsv` file (usually called `samples.tsv`) in the `config` folder
     + This file **must** contain a column called `sample`
-3. Edited `config.yml` in the `config folder to ensure all parameters are correct
+3. Edited `config.yml` in the `config` folder to ensure all parameters are correct
 
 ## Running the workflow
 
