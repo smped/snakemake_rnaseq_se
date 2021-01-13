@@ -1,4 +1,5 @@
 rule create_site_yaml:
+    input: os.path.basename(os.getcwd() + ".Rproj")
     output: "analysis/_site.yml"
     conda: "../envs/workflowr.yml"
     log: "logs/workflowr/create_site_yaml.log"
